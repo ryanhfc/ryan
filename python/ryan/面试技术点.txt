@@ -1,0 +1,7 @@
+Nginx/LVS/HAProxy反向代理,Keepalived高可用服务
+MySQL主从同步、MySQL集群的配置与管理
+Redis/Mongodb 等数据库的部署和优化
+KVM虚拟化技术,Openstack的安装与云主机部署
+Docker,Kubernetes容器以及编排技术
+Ceph、GlusterFS分布式存储
+部署REDIS哨兵集群

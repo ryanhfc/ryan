@@ -1,0 +1,93 @@
+一 为虚拟机添加一个光驱设备
+
+二 装包:
+1.[root@svr7 /]# yum -y install dhcp
+2.[root@svr7 /]# yum -y install tftp-server
+3.[root@svr7 /]# yum -y install syslinux
+4.[root@svr7 ~]# yum -y install httpd
+5.[root@svr7 ~]# yum -y install system-config-kickstart
+
+三 复制菜单文件:
+[root@svr7 /]# cp /usr/share/syslinux/pxelinux.0   /var/lib/tftpboot/
+[root@svr7 /]# mkdir /var/lib/tftpboot/pxelinux.cfg
+[root@svr7 /]# mount /dev/cdrom /mnt
+[root@svr7 /]# cp /mnt/isolinux/isolinux.cfg      /var/lib/tftpboot/pxelinux.cfg/default
+[root@svr7 /]# cd /mnt/isolinux
+部署图形的模块(vesamenu.c32 );背景图片(splash.png);启动内核(vmlinuz) 与 驱动程序(initrd.img)
+[root@svr7 isolinux]# cp vesamenu.c32 splash.png vmlinuz initrd.img /var/lib/tftpboot/
+[root@svr7 ~]# ls  /var/lib/tftpboot/
+initrd.img  pxelinux.cfg  vesamenu.c32
+pxelinux.0  splash.png    vmlinuz
+
+四 修改配置文件:
+1.
+[root@svr7 /]# vim /etc/dhcp/dhcpd.conf 
+
+subnet 192.168.4.0 netmask 255.255.255.0 {  #分配的网段
+  range 192.168.4.100  192.168.4.200;     #分配的IP地址范围
+  option domain-name-servers 192.168.4.7; #分配的DNS服务器地址
+  option routers 192.168.4.254;   #分配的网关地址
+  default-lease-time 600;
+  max-lease-time 7200;
+  next-server  192.168.4.7;  #指定写一个服务地址
+  filename  "pxelinux.0";    #网卡引导文件名称
+}
+
+2.
+[root@svr7 ~]# vim /var/lib/tftpboot/pxelinux.cfg/default
+   末行模式  :set  nu     #开启行号功能
+
+  1  default vesamenu.c32   							#默认加载图形的模块
+  2  timeout 600            							#读秒时间  1/10秒
+
+ 10 menu background splash.png    						#背景图片
+ 11 menu title PXE NSD1908 Server !    					#标题内容
+
+ 61 label linux
+ 62   menu label  Install CentOS7.5     					#选项显示内容
+ 63   menu default                     					#读秒结束,默认选择
+ 64   kernel vmlinuz                   					#默认加载启动内核
+ 65   append initrd=initrd.img ks=http://192.168.4.7/ks.cfg         #默认加载的驱动程序
+
+五 创建挂载点进行挂载光驱设备:
+[root@svr7 ~]# mkdir /var/www/html/centos
+[root@svr7 ~]# mount /dev/cdrom  /var/www/html/centos
+mount: /dev/sr0 写保护，将以只读方式挂载
+[root@svr7 ~]# systemctl restart httpd
+[root@svr7 ~]# systemctl  enable  httpd
+[root@svr7 ~]# firefox  192.168.4.7/centos
+
+六 制作应答文件:
+修改Yum仓库的支持:指向光盘的内容仓库,标识必须为[development]
+[root@svr7 ~]# vim /etc/yum.repos.d/local.repo 
+[development]
+name=CentOS-$releasever - Base
+baseurl=ftp://192.168.4.254/centos-1804
+enabled=1
+gpgcheck=0
+
+1.利用英文方式,运行图形工具
+[root@svr7 ~]# LANG=en  system-config-kickstart
+2.设置完后将应答文件保存为
+/var/www/html/ks.cfg
+3.查看应答文件
+[root@svr7 ~]# firefox 192.168.4.7/ks.cfg
+
+七 重启各项服务,开始装机
+[root@svr7 /]# systemctl restart dhcpd
+[root@svr7 /]# systemctl restart tftp
+[root@svr7 /]# systemctl enable dhcpd
+[root@svr7 /]# systemctl enable tftp
+
+########################################################
+
+流程总览:
+    1.dhcp服务--->IP地址   next-server  filename "pxelinux.0"
+    2.tftp服务--->pxelinux.0
+    3.pxelinux.0--->读取default菜单文件
+    4.default菜单文件--->图形模块  背景图片  内核  驱动程序 应答文件
+    5.ks.cfg应答文件--->  --url="http://192.168.4.7/centos"
+
+
+
+
